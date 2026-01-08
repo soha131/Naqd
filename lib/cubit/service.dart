@@ -17,7 +17,7 @@ class ApiService {
   final String apiUrl = "http://10.0.2.2:8000/extract-total/";
 
 
-   // final String apiUrl = "http://192.168.100.4:8000/extract-total/";
+   // final String apiUrl = "http://192.168.100.6:8000/extract-total/";
 
     try {
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl))

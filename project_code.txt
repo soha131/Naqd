@@ -1,0 +1,4043 @@
+﻿===== E:\Naqd_app\lib\auth\email_login.dart =====
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl_phone_number_input/intl_phone_number_input.dart';
+import 'package:naqd_app/auth/login_in.dart';
+import 'package:naqd_app/auth/signup.dart';
+import 'package:naqd_app/splash/main_page.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'US');
+  String? verificationId;
+
+  Future<void> signInWithEmailPassword() async {
+    try {
+      final email = _emailController.text;
+      final password = _passwordController.text;
+
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const UserStateScreen()),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'No user found for that email.';
+          break;
+        case 'wrong-password':
+          message = 'Wrong password provided.';
+          break;
+        case 'too-many-requests':
+          message = 'Too many failed login attempts. Please try again later.';
+          break;
+        default:
+          message = 'Authentication error: ${e.message}';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An unexpected error occurred: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Phone Number Login Function
+  Future<void> signInWithPhoneNumber() async {
+    try {
+      String phoneNumber = _phoneNumber.phoneNumber!;
+
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const UserStateScreen()),
+          );
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          print("Phone number verification failed: ${e.message}");
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            this.verificationId = verificationId;
+          });
+          showDialog(
+            context: context,
+            builder: (context) => OTPDialog(verificationId: verificationId),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          print("OTP auto-retrieval timeout: $verificationId");
+        },
+      );
+    } catch (e) {
+      print("Phone login error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF131313),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginOptionsScreen()),
+            );
+          },
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: size.height),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      "Login",
+                      style: TextStyle(
+                        fontSize: size.width * 0.08,
+                        color: Color(0xFF9E27BC),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Donâ€™t have an account?",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 16,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SignUpScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            "Sign up",
+                            style: TextStyle(
+                              color: Color(0xFF9E27BC),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                    TextField(
+                      controller: _emailController,
+                      style: TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        labelStyle: TextStyle(color: Colors.white),
+                        filled: true,
+                        fillColor: Color(0xFF1E1E1E),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.03),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      style: TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        labelStyle: TextStyle(color: Colors.white),
+                        filled: true,
+                        fillColor: Color(0xFF1E1E1E),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.05),
+                    ElevatedButton(
+                      onPressed: signInWithEmailPassword,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF9B4DFF),
+                        padding: EdgeInsets.symmetric(
+                          vertical: size.height * 0.02,
+                          horizontal: 70,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+
+                      child: Text(
+                        "Login with Email",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 60),
+
+                    InternationalPhoneNumberInput(
+                      onInputChanged: (PhoneNumber number) {
+                        setState(() {
+                          _phoneNumber = number;
+                        });
+                      },
+                      initialValue: _phoneNumber,
+                      selectorConfig: SelectorConfig(
+                        selectorType: PhoneInputSelectorType.DIALOG,
+                        setSelectorButtonAsPrefixIcon: true,
+                        showFlags: true,
+                      ),
+                      textStyle: TextStyle(color: Colors.white, fontSize: 16),
+                      inputDecoration: InputDecoration(
+                        labelText: 'Phone Number',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 20),
+                        labelStyle: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                        filled: true,
+                        fillColor: Color(0xFF1E1E1E),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: BorderSide(
+                            color: Colors.white,
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: BorderSide(
+                            color: Color(0xFF9B4DFF),
+                            width: 2,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: BorderSide(
+                            color: Colors.white.withOpacity(0.5),
+                            width: 1,
+                          ),
+                        ),
+                        prefixIcon: Icon(Icons.phone, color: Colors.white),
+                        prefixIconConstraints: BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.05),
+                    ElevatedButton(
+                      onPressed: signInWithPhoneNumber,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF9B4DFF),
+                        padding: EdgeInsets.symmetric(
+                          vertical: size.height * 0.02,
+                          horizontal: 40,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: Text(
+                        "Login with Phone Number",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    Expanded(child: SizedBox.shrink()),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class OTPDialog extends StatefulWidget {
+  final String verificationId;
+  OTPDialog({required this.verificationId});
+
+  @override
+  _OTPDialogState createState() => _OTPDialogState();
+}
+
+class _OTPDialogState extends State<OTPDialog> {
+  final otpController = TextEditingController();
+
+  Future<void> verifyOTP() async {
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: widget.verificationId,
+        smsCode: otpController.text,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final user = userCredential.user;
+      print('Signed in: ${user?.phoneNumber}');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const UserStateScreen()),
+      );
+    } catch (e) {
+      print("OTP verification error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        "Enter OTP",
+        style: TextStyle(
+          fontSize: 24,
+          color: Color(0xFF9E27BC),
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+      ),
+      content: TextField(
+        controller: otpController,
+        decoration: InputDecoration(labelText: 'OTP'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: verifyOTP,
+          child: Text(
+            "Verify",
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF9563A3),
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+}
+===== E:\Naqd_app\lib\auth\login_in.dart =====
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:icons_plus/icons_plus.dart';
+import 'package:naqd_app/auth/email_login.dart';
+import '../splash/main_page.dart';
+import '../widget/background.dart';
+
+class LoginOptionsScreen extends StatelessWidget {
+  const LoginOptionsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+
+      body: Stack(
+        children: [
+          NaqdBackground(
+            child: Positioned(
+              top: -350,
+              left: -80,
+              right: -50,
+              child: SizedBox(
+                height: size.height * 0.9,
+                width: double.infinity,
+                child: Image.asset(
+                  "assets/Vector.png",
+                  width: 180,
+                  height: 180,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -400,
+            left: -80,
+            right: -50,
+            child: SizedBox(
+              height: size.height * 0.9,
+              width: double.infinity,
+              child: Image.asset(
+                "assets/Vector (1).png",
+                width: 180,
+                height: 180,
+              ),
+            ),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 50),
+                child: Center(
+                  child: Image.asset(
+                    "assets/Group 4568.png",
+                    width: 120,
+                    height: 120,
+                  ),
+                ),
+              ),
+              SizedBox(height: size.height * 0.05),
+              _socialButton("Continue with Google", Bootstrap.google, size,context),
+             /* _socialButton("Continue with Facebook", Bootstrap.facebook, size,context),
+              _socialButton("Continue with Apple", Bootstrap.apple, size,context),*/
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: size.height * 0.02,horizontal: 20),
+                child: Text("Or", style: TextStyle(color: Colors.white70)),
+              ),
+              ElevatedButton(
+                onPressed: () { Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) =>  LoginPage()),
+                );},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF9648FE),
+                  padding: EdgeInsets.symmetric(
+                    vertical: size.height * 0.02,
+                    horizontal: size.width * 0.140,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: Text(
+                  "Login with Email or Phone Number",
+                  style: TextStyle(
+                    fontSize: size.width * 0.035,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _socialButton(String text, IconData icon, Size size, BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.1,
+        vertical: size.height * 0.01,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: ListTile(
+          leading: Icon(icon, color: Colors.white),
+          title: Text(text, style: TextStyle(color: Colors.white)),
+          onTap: () async {
+            try {
+              final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+              if (googleUser == null) return;
+
+              final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+              final credential = GoogleAuthProvider.credential(
+                accessToken: googleAuth.accessToken,
+                idToken: googleAuth.idToken,
+              );
+
+              final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+              final user = userCredential.user;
+              print('Signed in: ${user?.displayName}, ${user?.email}');
+
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const UserStateScreen()),
+              );
+            } catch (e) {
+              print('Google sign-in error: $e');
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+}
+===== E:\Naqd_app\lib\auth\signup.dart =====
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:naqd_app/splash/main_page.dart';
+
+class SignUpScreen extends StatefulWidget {
+  const SignUpScreen({super.key});
+
+  @override
+  State<SignUpScreen> createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends State<SignUpScreen> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
+
+  Future<void> signUpWithEmail() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      await credential.user?.updateDisplayName("New User");
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const UserStateScreen()),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Account created successfully.")),
+      );
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'This email is already registered.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'The email address is not valid.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Password should be at least 6 characters.';
+          break;
+        default:
+          errorMessage = 'Something went wrong. Please try again.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } catch (e) {
+      print("Sign up error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Unexpected error occurred.")),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                Text(
+                  "Create Account",
+                  style: TextStyle(
+                    fontSize: size.width * 0.08,
+                    color: const Color(0xFF9E27BC),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                TextField(
+                  controller: emailController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Email',
+                    hintStyle: const TextStyle(color: Colors.white60),
+                    filled: true,
+                    fillColor: Colors.white12,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+                    hintStyle: const TextStyle(color: Colors.white60),
+                    filled: true,
+                    fillColor: Colors.white12,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : signUpWithEmail,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9E27BC),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("Sign Up", style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\coorporate\add_spending_coorporate.dart =====
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:naqd_app/coorporate/Cspending_add.dart';
+import 'package:naqd_app/cubit/CoorporateCubit.dart';
+import '../personal/spending_add.dart';
+
+class AddSpendingCoorporateScreen extends StatefulWidget {
+  final double amount;
+  final String imagePath;
+
+  const AddSpendingCoorporateScreen({
+    super.key,
+    required this.amount,
+    required this.imagePath,
+  });
+
+  @override
+  State<AddSpendingCoorporateScreen> createState() => _AddSpendingCoorporateScreenState();
+}
+
+class _AddSpendingCoorporateScreenState extends State<AddSpendingCoorporateScreen> {
+  final TextEditingController amountController = TextEditingController();
+  final TextEditingController typeController = TextEditingController();
+  final TextEditingController dateController = TextEditingController();
+  final TextEditingController cardController = TextEditingController();
+  String selectedIcon = "ðŸ´";
+  final List<String> icons = [
+    "ðŸ´", "ðŸ›’", "ðŸŽ", "ðŸŽ“", "â›½", "ðŸ’Š", "ðŸ›ï¸", "ðŸ¥", "ðŸ¨", "ðŸ¦", "ðŸ«", "ðŸŽ®", "âœˆï¸"
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    amountController.text = widget.amount.toString();
+  }
+
+  void handleCorporateSpendingRequest() async {
+    if (amountController.text.isEmpty || double.tryParse(amountController.text) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Please enter a valid amount")));
+      return;
+    }
+
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print("User not logged in");
+        return;
+      }
+
+      String? imagePathToStore;
+      if (widget.imagePath.isNotEmpty) {
+        imagePathToStore = widget.imagePath;
+      }
+
+      Map<String, dynamic> requestData = {
+        'userId': user.uid,
+        'amount': double.tryParse(amountController.text) ?? 0.0,
+        'type': typeController.text,
+        'date': dateController.text,
+        'card': cardController.text,
+        'icon': selectedIcon,
+        'imagePath': imagePathToStore,
+        'status': 'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('corporateRequests')
+          .add(requestData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Request sent for approval")),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const AddScreen()),
+      );
+    } catch (e) {
+      print("Error submitting request: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to submit request")),
+      );
+    }
+  }
+
+  void selectDate(BuildContext context) async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        dateController.text = "${pickedDate.toLocal()}".split(' ')[0];
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    typeController.dispose();
+    dateController.dispose();
+    cardController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF131313),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              _buildLabel("Total Amount"),
+              _buildField(amountController, hintText: "Detecting..."),
+              _buildLabel("Type of spending"),
+              _buildField(typeController, hintText: "e.g. Food"),
+              _buildLabel("Transaction Date"),
+              _buildField(dateController, hintText: "Please enter manually"),
+              _buildLabel("Card used"),
+              _buildField(cardController, hintText: "Please enter manually"),
+              _buildLabel("Choose Icon"),
+              _buildDropdown(),
+              const SizedBox(height: 30),
+              Center(
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        vertical: size.height * 0.01,
+                      ),
+                      backgroundColor: const Color(0xFF9B4DFF),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
+                    onPressed: handleCorporateSpendingRequest,
+                    child: const Text(
+                      "Add Spending",
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0, bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 20),
+      ),
+    );
+  }
+
+  Widget _buildField(TextEditingController controller, {String? hintText}) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: const Color(0xFF1E1E1E),
+        hintText: hintText,
+        hintStyle: const TextStyle(color: Colors.grey),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      ),
+    );
+  }
+
+  Widget _buildDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: selectedIcon,
+        isExpanded: true,
+        dropdownColor: const Color(0xFF1E1E1E),
+        iconEnabledColor: Colors.white,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: const InputDecoration(border: InputBorder.none),
+        items: icons.map((icon) {
+          return DropdownMenuItem(
+            value: icon,
+            child: Center(child: Text(icon)),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              selectedIcon = value;
+            });
+          }
+        },
+        menuMaxHeight: 250,
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\coorporate\coorporate_account.dart =====
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:naqd_app/auth/login_in.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import '../personal/personal_main.dart';
+
+class AccountScreen extends StatefulWidget {
+  const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  final TextEditingController nameController = TextEditingController(text: 'Random Name');
+  final TextEditingController currencyController = TextEditingController(text: 'Sar');
+  final TextEditingController salaryController = TextEditingController(text: '5000 Sar');
+  final TextEditingController salaryDateController = TextEditingController(text: '1st Of The Month');
+  final TextEditingController spendingLimitController = TextEditingController(text: '3000Sar');
+
+  String selectedCompany = 'Al-Yamamah University';
+  final List<String> companyOptions = [
+    'Al-Yamamah University',
+    'King Saud University',
+    'STC',
+    'Mobily'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    nameController.text = FirebaseAuth.instance.currentUser?.displayName ?? ' Guest';
+    fetchCorporateData();
+  }
+  File? _pickedImage;
+  String? profileImageUrl;
+
+  Future<void> fetchCorporateData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('corporates').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data();
+        setState(() {
+          nameController.text = data?['name'] ?? '';
+          currencyController.text = data?['currency'] ?? '';
+          salaryController.text = data?['salary'] ?? '';
+          salaryDateController.text = data?['salaryDate'] ?? '';
+          spendingLimitController.text = data?['spendingLimit'] ?? '';
+          selectedCompany = data?['company'] ?? selectedCompany;
+          if (data?['profileImage'] != null) {
+            String profileImage = data!['profileImage'];
+
+            // Check if it's a URL
+            if (profileImage.startsWith('http')) {
+              profileImageUrl = "${profileImage}?v=${DateTime.now().millisecondsSinceEpoch}";
+            } else {
+              // If it's a local path, update the local image
+              _pickedImage = File(profileImage);
+              profileImageUrl = null; // Do not show URL, show local image instead
+            }
+          } else {
+            profileImageUrl = null;
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> saveChanges() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final imagePath = profileImageUrl; // Just the local path
+          await FirebaseFirestore.instance.collection('corporates').doc(user.uid).set({
+            'name': nameController.text.trim(),
+            'currency': currencyController.text.trim(),
+            'company': selectedCompany,
+            'salary': salaryController.text.trim(),
+            'salaryDate': salaryDateController.text.trim(),
+            'spendingLimit': spendingLimitController.text.trim(),
+            'email': user.email,
+            'uid': user.uid,
+            'profileImage': imagePath,
+          }, SetOptions(merge: true));
+
+          setState(() {
+            nameController.text = nameController.text.trim();
+            currencyController.text = currencyController.text.trim();
+            salaryController.text = salaryController.text.trim();
+            salaryDateController.text = salaryDateController.text.trim();
+            spendingLimitController.text = spendingLimitController.text.trim();
+          });
+          fetchCorporateData();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Profile updated successfully!")));
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to save data.")));
+      }
+    }
+  }
+
+  Future<void> deleteUserAccount(BuildContext context) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        await user.delete();
+        await FirebaseAuth.instance.signOut();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginOptionsScreen()),
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Account deleted successfully.")),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please re-authenticate before deleting your account."),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.message}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Unexpected error occurred.")),
+      );
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = path.basename(pickedFile.path);
+      final savedImage = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+
+      setState(() {
+        _pickedImage = savedImage;
+      });
+
+      print('Saved image path: ${savedImage.path}');
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    currencyController.dispose();
+    salaryController.dispose();
+    salaryDateController.dispose();
+    spendingLimitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF131313),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Account Settings',
+          style: TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bookmark, color: Colors.white),
+            onPressed: saveChanges,
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    ClipOval(
+                      child: _pickedImage != null
+                          ? Image.file(_pickedImage!, width: 110, height: 110, fit: BoxFit.cover)
+                          : Image.asset('assets/profile.jpg', width: 110, height: 110, fit: BoxFit.cover),
+                    ),
+
+
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt, color: Color(0xFF9B4DFF)),
+                          onPressed: _pickImage,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildTextFormField('Your Name', nameController, hintText: 'Random Name'),
+              _buildTextFormField('Account Currency', currencyController, hintText: 'SAR'),
+              _buildDropdownField('Company (Optional only for Coorporate Account)'),
+              _buildTextFormField('Monthly Salary', salaryController, hintText: '5000 Sar'),
+              _buildTextFormField('Salary Date', salaryDateController, hintText: '1st of the Month'),
+              _buildTextFormField('Spending Limit Warning', spendingLimitController, hintText: '2000 Sar'),
+              const SizedBox(height: 14),
+              ElevatedButton(
+                onPressed: () {
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PersonalMainScreen(),
+                    ),
+                  );
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Welcome, Personal User!'),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF9B4DFF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Change to Personal',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => deleteUserAccount(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFFF0000),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Delete my account',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextFormField(String label, TextEditingController controller, {String? hintText}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFF1C1C1E),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField(String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: DropdownButtonFormField<String>(
+            dropdownColor: const Color(0xFF1C1C1E),
+            value: selectedCompany,
+            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+            ),
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            items: companyOptions.map((String company) {
+              return DropdownMenuItem<String>(
+                value: company,
+                child: Text(company),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                selectedCompany = newValue!;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+===== E:\Naqd_app\lib\coorporate\coorporate_main.dart =====
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:naqd_app/coorporate/Expense_States.dart';
+import 'package:naqd_app/coorporate/add_spending_coorporate.dart';
+import 'package:naqd_app/coorporate/coorporate_account.dart';
+import 'package:naqd_app/cubit/CoorporateCubit.dart';
+import 'package:naqd_app/cubit/ocr_cubit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class CoorporateMainScreen extends StatefulWidget {
+  const CoorporateMainScreen({super.key});
+
+  @override
+  State<CoorporateMainScreen> createState() => _CoorporateMainScreenState();
+}
+
+class _CoorporateMainScreenState extends State<CoorporateMainScreen> {
+  double? extractAmount;
+  Stream<DocumentSnapshot> getUserStream() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      return FirebaseFirestore.instance.collection('corporates').doc(user.uid).snapshots();
+    }
+    return Stream.empty(); // In case user is not logged in
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: BlocProvider(
+            create: (_) => Coorporatecubit()..fetchTransactions(approvedOnly: true),
+            child: BlocConsumer<Coorporatecubit, CoorporateState>(
+              listener: (context, state) {
+                if (state is CoorporateError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: ${state.message}')),
+                  );
+                }
+              },
+              builder: (context, state) {
+                if (state is CoorporateLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state is CoorporateLoadedAll) {
+                  return _buildContent(
+                    context,
+                    state.total,
+                    state.transactions,
+                  );
+                } else if (state is CoorporateLoadedApproved) {
+                  return _buildContent(
+                    context,
+                    state.total,
+                    state.transactions,
+                  );
+                } else if (state is CoorporateError) {
+                  return Center(
+                    child: Text(
+                      'Error: ${state.message}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  );
+                } else {
+                  return const Center(
+                    child: Text('No data available', style: TextStyle(color: Colors.white)),
+                  );
+                }
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, double totalSpending, List<Map<String, dynamic>> transactions) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(),
+        const SizedBox(height: 100),
+        _buildActionButtons(),
+        const SizedBox(height: 30),
+        Expanded(
+          child: _buildTransactionList(transactions: transactions),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? "User";
+    final photoUrl = user?.photoURL;
+
+
+    return Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AccountScreen()),
+                );
+              },
+              child: CircleAvatar(
+                radius: 28,
+                backgroundImage: photoUrl != null
+                    ? NetworkImage(photoUrl)
+                    : const AssetImage('assets/profile.jpg') as ImageProvider,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Welcome', style: TextStyle(color: Color(0xFF9E27BC))),
+                Text(displayName, style: const TextStyle(color: Colors.white)),
+              ],
+            ),
+          ],
+        );
+
+  }
+
+  Widget _buildActionButtons() {
+    final ImagePicker _picker = ImagePicker();
+
+    Future<void> pickImageAndExtractAmount() async {
+      final XFile? pickedFile = await showDialog<XFile>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Select Image Source'),
+            actions: [
+              TextButton.icon(
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Camera'),
+                onPressed: () async {
+                  Navigator.pop(context, await _picker.pickImage(source: ImageSource.camera));
+                },
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Gallery'),
+                onPressed: () async {
+                  Navigator.pop(context, await _picker.pickImage(source: ImageSource.gallery));
+                },
+              ),
+            ],
+          );
+        },
+      );
+
+      if (pickedFile != null) {
+        File file = File(pickedFile.path);
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+        try{
+          double amount = await context.read<AmountPredictionCubit>().total(file, context);
+
+          if (amount >= 0) {
+            setState(() {
+              extractAmount = amount;
+            });
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('image_path', file.path);
+            context.read<Coorporatecubit>().refresh();
+
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('Amount Detected'),
+                  content: Text('Amount detected: ${extractAmount.toString()} SAR'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BlocProvider.value(
+                              value: context.read<Coorporatecubit>(),
+                              child: AddSpendingCoorporateScreen(
+                                amount: extractAmount!,
+                                imagePath: file.path,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Go to Add Spending'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                  ],
+                );
+              },
+            );
+          } else {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('Error'),
+                  content: const Text('Failed to detect the amount'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
+        }
+        catch (e) {
+          Navigator.pop(context); // Close loading dialog in case of error
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('Error'),
+                content: Text('Something went wrong: $e'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      }
+    }
+
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => ExpenseStatesCoorporateScreen()),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF9648FE),
+              side: const BorderSide(color: Colors.white),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: const Icon(Icons.library_add_check),
+            label: const Text('Expense States'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: pickImageAndExtractAmount,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF9648FE),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Spending'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionList({required List<Map<String, dynamic>> transactions}) {
+    if (transactions.isEmpty) {
+      return const Center(
+        child: Text(
+          'No transactions available.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: transactions.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 5),
+      itemBuilder: (context, index) {
+        final transaction = transactions[index];
+        final amount = '${transaction['amount'] ?? '0.00'}';
+        final cardName = transaction['card'] ?? 'Unknown Card';
+        final icon = transaction['icon'] ?? 'ðŸ´';
+        final dateTime = transaction['timestamp'] ?? 'Unknown Date';
+
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.grey.shade900,
+            child: Text(
+              icon,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          title: Text(
+            cardName,
+            style: const TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            dateTime,
+            style: const TextStyle(color: Colors.white70),
+          ),
+          trailing: Text(
+            amount,
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+      },
+    );
+  }
+}
+===== E:\Naqd_app\lib\coorporate\Cspending_add.dart =====
+import 'package:flutter/material.dart';
+import 'package:naqd_app/coorporate/coorporate_main.dart';
+import 'package:naqd_app/personal/personal_main.dart';
+
+class AddScreen extends StatelessWidget {
+  const AddScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      body: Column(
+        children: [
+          const Spacer(flex: 7),
+          Text(
+            "Spending Added",
+            style: TextStyle(
+              fontSize: size.width * 0.08,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const Spacer(flex: 2),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30),
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CoorporateMainScreen(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9648FE),
+                padding: EdgeInsets.symmetric(
+                  vertical: size.height * 0.02,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                minimumSize: Size(double.infinity, 0),
+              ),
+              child: Text(
+                "Homepage",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size.width * 0.035,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(flex: 7),
+        ],
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\coorporate\Expense_States.dart =====
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../cubit/CoorporateCubit.dart';
+import 'coorporate_main.dart';
+
+class ExpenseStatesCoorporateScreen extends StatefulWidget {
+  const ExpenseStatesCoorporateScreen({super.key});
+
+  @override
+  State<ExpenseStatesCoorporateScreen> createState() => _ExpenseStatesCoorporateScreenState();
+}
+
+class _ExpenseStatesCoorporateScreenState extends State<ExpenseStatesCoorporateScreen> {
+
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green;
+      case 'pending':
+        return Colors.yellow;
+      case 'rejected':
+        return Colors.red;
+      case 'info':
+        return Colors.brown;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget buildLegendDot(Color color, String label) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        CircleAvatar(radius: 5, backgroundColor: color),
+        SizedBox(width: 10),
+        Text(label, style: TextStyle(color: Colors.white, fontSize: 20)),
+        SizedBox(width: 12),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF131313),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CoorporateMainScreen(),
+              ),
+            );
+          },
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: BlocProvider(
+            create: (_) => Coorporatecubit()..fetchTransactions(),
+            child: BlocBuilder<Coorporatecubit, CoorporateState>(
+              builder: (context, state) {
+                if (state is CoorporateLoading) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (state is CoorporateError) {
+                  return Center(child: Text('Error: ${state.message}'));
+                }
+
+                List<Map<String, dynamic>> transactions = [];
+                double total = 0;
+
+                // Depending on the state, load the transactions
+                if (state is CoorporateLoadedAll) {
+                  transactions = state.transactions;
+                  total = state.total;
+                } else if (state is CoorporateLoadedApproved) {
+                  transactions = state.transactions;
+                  total = state.total;
+                }
+
+                return Column(
+                  children: [
+                    // Status Legend
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Column(
+                          children: [
+                            buildLegendDot(Colors.red, 'Rejected'),
+                            buildLegendDot(Colors.brown, 'Needs More Info'),
+                            buildLegendDot(Colors.green, 'Approved'),
+                            buildLegendDot(Colors.yellow, 'Pending'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 20,),
+                    // Transaction List
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: transactions.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 5),
+                        itemBuilder: (context, index) {
+                          final transaction = transactions[index];
+                          final amount = '${transaction['amount'] ?? '0.00'}';
+                          final cardName = transaction['card'] ?? 'Unknown Card';
+                          final icon = transaction['icon'] ?? 'ðŸ´';
+                          final dateTime = transaction['timestamp'] ?? 'Unknown Date';
+                          final String rawStatus = transaction['status'] ?? '';
+                          final String status = rawStatus.toLowerCase().trim();
+                          final Color statusColor = getStatusColor(status);
+                          print('Status for item $index: $status');
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Color(0xFF1C1C1E), // Apply color based on status
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                leading: Text(
+                                  icon,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                title: Text(
+                                  cardName,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                subtitle: Text(
+                                  dateTime,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+
+                                  children: [
+                                    Text(
+                                      amount,
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    if (status.isNotEmpty)
+                                      CircleAvatar(
+                                        radius: 15,
+                                        backgroundColor: statusColor,
+                                      ),
+                                  ],
+                                ),
+
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\cubit\CoorporateCubit.dart =====
+import 'package:bloc/bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+
+
+
+class Coorporatecubit extends Cubit<CoorporateState> {
+  Coorporatecubit() : super(CoorporateInitial());
+
+  // Fetch transactions with the option to filter by 'approved' status
+  Future<void> fetchTransactions({bool approvedOnly = false}) async {
+    emit(CoorporateLoading());
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) throw Exception('User not logged in');
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('corporateRequests')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      double total = 0;
+      List<Map<String, dynamic>> transactions = [];
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+
+        // If fetching approved transactions only, filter by status
+        if (approvedOnly && data['status'] != 'approved') continue;
+
+        // For both all and approved transactions, process the data
+        final amount = double.tryParse(data['amount'].toString()) ?? 0.0;
+        final cardName = data['card'] ?? 'Unknown Card';
+        final timestamp = data['timestamp'] as Timestamp?;
+        final icon = data['icon'] ?? 'ðŸ´';
+        final status = data['status'] ?? 'unknown';
+
+        final formattedDate = timestamp != null
+            ? DateFormat('d MMM yyyy').format(timestamp.toDate())
+            : 'Unknown Date';
+
+        total += amount;
+
+        transactions.add({
+          'amount': '${amount.toStringAsFixed(2)} SAR',
+          'card': cardName,
+          'timestamp': formattedDate,
+          'icon': icon,
+          'status': status,
+        });
+      }
+
+      // Emit different states based on what was fetched
+      if (approvedOnly) {
+        emit(CoorporateLoadedApproved(total: total, transactions: transactions));
+      } else {
+        emit(CoorporateLoadedAll(total: total, transactions: transactions));
+      }
+    } catch (e) {
+      emit(CoorporateError(message: e.toString()));
+    }
+  }
+
+  void refresh() {
+    fetchTransactions();
+  }
+}
+
+abstract class CoorporateState {}
+
+class CoorporateInitial extends CoorporateState {}
+
+class CoorporateLoading extends CoorporateState {}
+
+class CoorporateLoadedAll extends CoorporateState {
+  final double total;
+  final List<Map<String, dynamic>> transactions;
+
+  CoorporateLoadedAll({required this.total, required this.transactions});
+}
+
+class CoorporateLoadedApproved extends CoorporateState {
+  final double total;
+  final List<Map<String, dynamic>> transactions;
+
+  CoorporateLoadedApproved({required this.total, required this.transactions});
+}
+
+class CoorporateError extends CoorporateState {
+  final String message;
+  CoorporateError({required this.message});
+}
+===== E:\Naqd_app\lib\cubit\ocr_cubit.dart =====
+import 'dart:io';
+import 'package:bloc/bloc.dart';
+import 'package:flutter/material.dart';
+import 'package:naqd_app/cubit/ocr_model.dart';
+import 'package:naqd_app/cubit/service.dart';
+import 'ocr_state.dart';
+
+class AmountPredictionCubit extends Cubit<AmountPredictionState> {
+  AmountPredictionCubit() : super(AmountPredictionInitial());
+
+  Future<double> total(File file, BuildContext context) async {
+    try {
+      emit(AmountPredictionLoading());
+      AmountPrediction? result = await ApiService().fetchDataFromApi(file, context);
+
+      if (result != null) {
+        emit(AmountPredictionSuccess(result));  // Emit result when successful
+        return result.total;  // Return the amount extracted from the result
+      } else {
+        emit(AmountPredictionError("No result returned from the API."));
+        return 0.0;  // Return a default value in case no result is found
+      }
+    } catch (e) {
+      emit(AmountPredictionError("Error: $e"));
+      return 0.0;  // Return a default value in case of an error
+    }
+  }
+
+}
+===== E:\Naqd_app\lib\cubit\ocr_model.dart =====
+class AmountPrediction {
+  final double total;
+
+  AmountPrediction({required this.total});
+
+  factory AmountPrediction.fromJson(Map<String, dynamic> json) {
+    return AmountPrediction(
+      total: json['total']?.toDouble() ?? 0.0,  // Assuming the 'total' is part of the response
+    );
+  }
+}
+===== E:\Naqd_app\lib\cubit\ocr_state.dart =====
+
+import 'package:naqd_app/cubit/ocr_model.dart';
+
+abstract class AmountPredictionState {}
+
+class AmountPredictionInitial extends AmountPredictionState {}
+
+class AmountPredictionLoading extends AmountPredictionState {}
+
+class AmountPredictionSuccess extends AmountPredictionState {
+  final AmountPrediction prediction;
+  AmountPredictionSuccess(this.prediction);
+}
+
+class AmountPredictionError extends AmountPredictionState {
+  final String message;
+  AmountPredictionError(this.message);
+}
+===== E:\Naqd_app\lib\cubit\service.dart =====
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
+import 'package:nb_utils/nb_utils.dart';
+import 'ocr_model.dart';
+
+class ApiService {
+  Future<AmountPrediction?> fetchDataFromApi(File file, BuildContext context) async {
+    if (!(await file.exists())) {
+      Fluttertoast.showToast(msg: "Error: File does not exist");
+      return null;
+    }
+
+  final String apiUrl = "http://10.0.2.2:8000/extract-total/";
+
+
+   // final String apiUrl = "http://192.168.100.6:8000/extract-total/";
+
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl))
+        ..files.add(await http.MultipartFile.fromPath('file', file.path))
+        ..headers.addAll({'Accept': 'application/json'});
+
+      var streamedResponse = await request.send().timeout(Duration(seconds: 60));
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+      print(responseBody);
+      if (streamedResponse.statusCode == 200 && responseBody.isNotEmpty) {
+        try {
+          final jsonData = json.decode(responseBody);
+          return AmountPrediction.fromJson(jsonData);
+        } catch (e) {
+          Fluttertoast.showToast(msg: "Error parsing response: $e");
+          return null;
+        }
+      } else {
+        Fluttertoast.showToast(msg: "API Error: ${streamedResponse.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Request failed. Check connection. Error: $e");
+      return null;
+    }
+  }
+}
+===== E:\Naqd_app\lib\cubit\SpendingCubit.dart =====
+import 'package:bloc/bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:naqd_app/SpendingService.dart';
+
+class SpendingCubit extends Cubit<SpendingState> {
+  SpendingCubit() : super(SpendingInitial());
+
+/*
+  Future<void> fetchTotalSpending() async {
+    emit(SpendingLoading());
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) throw Exception('User not logged in');
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('spendings')
+          .get();
+
+      double total = 0;
+      List<Map<String, dynamic>> transactions = [];
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final amount = double.tryParse(data['amount'].toString()) ?? 0.0;
+
+        total += amount;
+
+        transactions.add({
+          'amount': '${amount.toStringAsFixed(2)} SAR',
+          'name': data['name'] ?? '',
+          'datetime': data['datetime'] ?? '',
+          'icon': data['icon'] ?? 'ðŸ›’',
+        });
+      }
+
+      emit(SpendingLoaded(total: total, transactions: transactions));
+    } catch (e) {
+      emit(SpendingError(message: e.toString()));
+    }
+  }
+*/
+
+
+  Future<void> fetchTotalSpending() async {
+    emit(SpendingLoading());
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) throw Exception('User not logged in');
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('spendings')
+          .get();
+
+      double total = 0;
+      List<Map<String, dynamic>> transactions = [];
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+
+        // Debugging logs to inspect the fetched data
+        print('Transaction Data: $data');
+
+        final amount = double.tryParse(data['amount'].toString()) ?? 0.0;
+        final cardName = data['card'] ?? 'Unknown Card';  // Check if 'card' exists
+        final timestamp = data['timestamp'] as Timestamp?;
+        final icon = data['icon'] ?? 'ðŸ´'; // Default icon
+
+        // If timestamp is not null, convert it to DateTime and format it
+        final formattedDate = timestamp != null
+            ? DateFormat('d MMM yyyy').format(timestamp.toDate()) // Formatting date as "2 Mar 2025"
+            : 'Unknown Date';
+
+        total += amount;
+
+        transactions.add({
+          'amount': '${amount.toStringAsFixed(2)} SAR',
+          'card': cardName,
+          'timestamp': formattedDate, // Display formatted date
+          'icon': icon,
+        });
+      }
+
+      emit(SpendingLoaded(total: total, transactions: transactions));
+    } catch (e) {
+      emit(SpendingError(message: e.toString()));
+    }
+  }
+
+  void refreshSpending() {
+    fetchTotalSpending();
+  }
+}
+
+abstract class SpendingState {}
+
+class SpendingInitial extends SpendingState {}
+
+class SpendingLoading extends SpendingState {}
+
+class SpendingLoaded extends SpendingState {
+  final double total;
+  final List<Map<String, dynamic>> transactions;
+
+  SpendingLoaded({required this.total, required this.transactions});
+}
+
+class SpendingError extends SpendingState {
+  final String message;
+  SpendingError({required this.message});
+}
+
+===== E:\Naqd_app\lib\firebase_options.dart =====
+// File generated by FlutterFire CLI.
+// ignore_for_file: type=lint
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
+/// Default [FirebaseOptions] for use with your Firebase apps.
+///
+/// Example:
+/// ```dart
+/// import 'firebase_options.dart';
+/// // ...
+/// await Firebase.initializeApp(
+///   options: DefaultFirebaseOptions.currentPlatform,
+/// );
+/// ```
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for ios - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      case TargetPlatform.macOS:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      case TargetPlatform.windows:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      case TargetPlatform.linux:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
+    }
+  }
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBdrdVp_DQjl9L2J0OTlIMgvdBytwr8Ngw',
+    appId: '1:121763718011:android:cf8b03eb7fb063712e93de',
+    messagingSenderId: '121763718011',
+    projectId: 'naqd-f5fe7',
+    storageBucket: 'naqd-f5fe7.firebasestorage.app',
+  );
+}
+===== E:\Naqd_app\lib\main.dart =====
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:naqd_app/cubit/CoorporateCubit.dart';
+import 'package:naqd_app/cubit/SpendingCubit.dart';
+import 'package:naqd_app/cubit/ocr_cubit.dart';
+import 'package:naqd_app/splash/loading.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => SpendingCubit()),  // Provide SpendingCubit
+        BlocProvider(create: (context) => Coorporatecubit()),  // Provide AmountPredictionCubit
+        BlocProvider(create: (context) => AmountPredictionCubit()),  // Provide AmountPredictionCubit
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+
+    return MaterialApp(
+     /*   theme: ThemeData(
+      fontFamily: 'Inter',
+      textTheme: ThemeData.light().textTheme,
+    ),*/debugShowCheckedModeBanner: false, home: SplashScreen());
+  }
+}
+===== E:\Naqd_app\lib\personal\add_spending_personal.dart =====
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:naqd_app/cubit/SpendingCubit.dart';
+import 'spending_add.dart';
+
+class AddSpendingPersonalScreen extends StatefulWidget {
+  final double amount;
+  final String imagePath;
+
+  const AddSpendingPersonalScreen({super.key, required this.amount, required this.imagePath});
+
+  @override
+  State<AddSpendingPersonalScreen> createState() => _AddSpendingPersonalScreenState();
+}
+
+class _AddSpendingPersonalScreenState extends State<AddSpendingPersonalScreen> {
+  final TextEditingController amountController = TextEditingController();
+  final TextEditingController typeController = TextEditingController();
+  final TextEditingController dateController = TextEditingController();
+  final TextEditingController cardController = TextEditingController();
+  String selectedIcon = "ðŸ´";
+  File? imageFile;
+  final List<String> icons = [
+    "ðŸ´", "ðŸ›’", "ðŸŽ", "ðŸŽ“", "â›½", "ðŸ’Š","ðŸ›ï¸","ðŸ¥","ðŸ¨,""ðŸ¦","ðŸ«","ðŸŽ®","âœˆï¸"
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    amountController.text = widget.amount.toString();
+  }
+ /* void saveSpendingData() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print("No user is logged in");
+        return;
+      }
+
+      Map<String, dynamic> spendingData = {
+        'amount': double.tryParse(amountController.text) ?? 0.0,
+        'type': typeController.text,
+        'date': dateController.text,
+        'card': cardController.text,
+        'icon': selectedIcon,
+        'imageUrl': imageFile != null ? await uploadImage(imageFile!) : null,
+        'userId': user.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+
+      // Correct Firestore path
+      await FirebaseFirestore.instance
+          .collection('users') // Correct path
+          .doc(user.uid)
+          .collection('spendings')
+          .add(spendingData);
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Spending added successfully")));
+
+      // Refresh the total spending and transactions
+      context.read<SpendingCubit>().fetchTotalSpending();
+
+      // Navigate back or reset the form
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => SpendingAddScreen()),
+      );    } catch (e) {
+      print("Error adding spending: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error adding spending")));
+    }
+  }
+
+  Future<String?> uploadImage(File imageFile) async {
+    // If you want to upload the image, implement it here using Firebase Storage
+    // For now, returning null if no image is selected*
+
+    return null;
+  }*/
+
+  void saveSpendingData() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print("No user is logged in");
+        return;
+      }
+      String? imagePathToStore;
+      if (widget.imagePath.isNotEmpty) {
+        imagePathToStore = widget.imagePath;
+      }
+      Map<String, dynamic> spendingData = {
+        'amount': double.tryParse(amountController.text) ?? 0.0,
+        'type': typeController.text,
+        'date': dateController.text,
+        'card': cardController.text,
+        'icon': selectedIcon,
+        'imageUrl': imagePathToStore,
+        'userId': user.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+
+      // Correct Firestore path
+      await FirebaseFirestore.instance
+          .collection('users') // Correct path
+          .doc(user.uid)
+          .collection('spendings')
+          .add(spendingData);
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Spending added successfully")));
+
+      // Refresh the total spending and transactions
+      context.read<SpendingCubit>().fetchTotalSpending();
+
+      // Navigate back or reset the form
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => SpendingAddScreen()),
+      );
+    } catch (e) {
+      print("Error adding spending: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error adding spending")));
+    }
+  }
+
+  Future<String?> uploadImage(File imageFile) async {
+    try {
+      // Generate a unique file name using the current timestamp
+      String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Create a reference to Firebase Storage
+      Reference storageReference = FirebaseStorage.instance.ref().child('spending_images/$fileName');
+
+      // Upload the image to Firebase Storage
+      UploadTask uploadTask = storageReference.putFile(imageFile);
+
+      // Wait for the upload to complete and get the download URL
+      TaskSnapshot snapshot = await uploadTask;
+
+      // Get the download URL for the uploaded image
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      return downloadUrl;  // Return the URL to store in Firestore
+    } catch (e) {
+      print("Error uploading image: $e");
+      return null;  // Return null if upload fails
+    }
+  }
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    typeController.dispose();
+    dateController.dispose();
+    cardController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF131313),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              _buildLabel("Total Amount"),
+              _buildField(amountController, hintText: "Detecting..."),
+              _buildLabel("Type of spending"),
+              _buildField(typeController, hintText: "e.g. Food"),
+              _buildLabel("Transaction Date"),
+              _buildField(dateController, hintText: "Please enter manually"),
+              _buildLabel("Card used"),
+              _buildField(cardController, hintText: "Please enter manually"),
+              _buildLabel("Choose Icon"),
+              _buildDropdown(),
+              const SizedBox(height: 30),
+              Center(
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: size.height * 0.01),
+                      backgroundColor: const Color(0xFF9B4DFF),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
+                    onPressed: () {
+                      saveSpendingData();
+                    },
+                    child: const Text(
+                      "Add Spending",
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0, bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 20),
+      ),
+    );
+  }
+
+  Widget _buildField(TextEditingController controller, {String? hintText}) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: const Color(0xFF1E1E1E),
+        hintText: hintText,
+        hintStyle: const TextStyle(color: Colors.grey),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      ),
+    );
+  }
+
+  Widget _buildDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: selectedIcon,
+        isExpanded: true,
+        dropdownColor: const Color(0xFF1E1E1E),
+        iconEnabledColor: Colors.white,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: const InputDecoration(border: InputBorder.none),
+        items: icons.map((icon) {
+          return DropdownMenuItem(
+            value: icon,
+            child: Center(child: Text(icon)),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              selectedIcon = value;
+            });
+          }
+        },
+        menuMaxHeight: 250,
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\personal\personal_account.dart =====
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:naqd_app/auth/login_in.dart';
+import 'package:path_provider/path_provider.dart';
+import '../coorporate/coorporate_main.dart';
+import 'package:path/path.dart' as path;
+
+class AccountSettingsPage extends StatefulWidget {
+  const AccountSettingsPage({super.key});
+
+  @override
+  State<AccountSettingsPage> createState() => _AccountSettingsPageState();
+}
+
+class _AccountSettingsPageState extends State<AccountSettingsPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  bool isUploading = false;
+  double uploadProgress = 0.0;
+
+  final nameController = TextEditingController();
+  final currencyController = TextEditingController();
+  final salaryController = TextEditingController();
+  final salaryDateController = TextEditingController();
+  final spendingLimitController = TextEditingController();
+
+  String selectedCompany = 'Al-Yamamah University';
+  final companyOptions = [
+    'Al-Yamamah University',
+    'King Saud University',
+    'STC',
+    'Mobily',
+  ];
+
+  File? _pickedImage;
+  String? profileImageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController.text = FirebaseAuth.instance.currentUser?.displayName ?? 'Guest';
+    fetchUserData();
+  }
+
+  Future<void> fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data();
+        setState(() {
+          nameController.text = data?['name'] ?? '';
+          currencyController.text = data?['currency'] ?? '';
+          salaryController.text = data?['salary'] ?? '';
+          salaryDateController.text = data?['salaryDate'] ?? '';
+          spendingLimitController.text = data?['spendingLimit'] ?? '';
+          selectedCompany = data?['company'] ?? selectedCompany;
+
+          // Handle profile image - check if it's a valid local path or URL
+          if (data?['profileImage'] != null) {
+            String profileImage = data!['profileImage'];
+
+            // Check if it's a URL
+            if (profileImage.startsWith('http')) {
+              profileImageUrl = "${profileImage}?v=${DateTime.now().millisecondsSinceEpoch}";
+            } else {
+              // If it's a local path, update the local image
+              _pickedImage = File(profileImage);
+              profileImageUrl = null; // Do not show URL, show local image instead
+            }
+          } else {
+            profileImageUrl = null;
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> saveChanges() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final imagePath = profileImageUrl; // Just the local path
+
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'name': nameController.text.trim(),
+            'currency': currencyController.text.trim(),
+            'company': selectedCompany,
+            'salary': salaryController.text.trim(),
+            'salaryDate': salaryDateController.text.trim(),
+            'spendingLimit': spendingLimitController.text.trim(),
+            'email': user.email,
+            'uid': user.uid,
+            'profileImage': imagePath, // Local file path stored here
+          }, SetOptions(merge: true));
+
+          print('Stored local image path: $imagePath');
+          await fetchUserData();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Profile updated successfully!")),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to save data.")),
+        );
+      }
+    }
+  }
+
+  Future<void> deleteUserAccount(BuildContext context) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await user.delete();
+        await FirebaseAuth.instance.signOut();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginOptionsScreen()),
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Account deleted successfully.")),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please re-authenticate before deleting your account."),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.message}")),
+        );
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Unexpected error occurred.")),
+      );
+    }
+  }
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = path.basename(pickedFile.path);
+      final savedImage = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+
+      setState(() {
+        _pickedImage = savedImage;
+      });
+
+      print('Saved image path: ${savedImage.path}');
+    }
+  }
+
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    currencyController.dispose();
+    salaryController.dispose();
+    salaryDateController.dispose();
+    spendingLimitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF131313),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Account Settings',
+          style: TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bookmark, color: Colors.white),
+            onPressed: saveChanges,
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    ClipOval(
+                      child: _pickedImage != null
+                          ? Image.file(_pickedImage!, width: 110, height: 110, fit: BoxFit.cover)
+                          : Image.asset('assets/profile.jpg', width: 110, height: 110, fit: BoxFit.cover),
+                    ),
+
+
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt, color: Color(0xFF9B4DFF)),
+                          onPressed: _pickImage,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isUploading)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: LinearProgressIndicator(
+                    value: uploadProgress,
+                    backgroundColor: Colors.grey[300],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9B4DFF)),
+                  ),
+                ),
+              _buildTextFormField('Your Name', nameController, hintText: 'Random Name'),
+              _buildTextFormField('Account Currency', currencyController, hintText: 'SAR'),
+              _buildDropdownField('Company (Optional only for Coorporate Account)'),
+              _buildTextFormField('Monthly Salary', salaryController, hintText: '5000 SAR'),
+              _buildTextFormField('Salary Date', salaryDateController, hintText: '1st of the Month'),
+              _buildTextFormField('Spending Limit Warning', spendingLimitController, hintText: '2000 SAR'),
+              const SizedBox(height: 14),
+              ElevatedButton(
+                onPressed: _handleCorporateRequest,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9B4DFF),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Change to Coorporate',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => deleteUserAccount(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF0000),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Delete my account',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleCorporateRequest() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('User not logged in')));
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance.collection('joinRequests').doc(user.uid).get();
+
+      if (doc.exists && doc['status'] == 'approved') {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const CoorporateMainScreen()));
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Welcome, Corporate User!')));
+      } else if (!doc.exists) {
+        await FirebaseFirestore.instance.collection('joinRequests').doc(user.uid).set({
+          'userId': user.uid,
+          'email': user.email,
+          'timestamp': FieldValue.serverTimestamp(),
+          'status': 'pending',
+        });
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Request sent. Waiting for approval.')));
+      } else {
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Request is pending approval.')));
+      }
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+    }
+  }
+
+  Widget _buildTextFormField(String label, TextEditingController controller, {String? hintText}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: const Color(0xFF1C1C1E),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField(String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: DropdownButtonFormField<String>(
+            dropdownColor: const Color(0xFF1C1C1E),
+            value: selectedCompany,
+            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+            decoration: const InputDecoration(border: InputBorder.none),
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            items: companyOptions.map((String company) {
+              return DropdownMenuItem<String>(
+                value: company,
+                child: Text(company),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                selectedCompany = newValue!;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+===== E:\Naqd_app\lib\personal\personal_main.dart =====
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:naqd_app/auth/login_in.dart';
+import 'package:naqd_app/cubit/SpendingCubit.dart';
+import 'package:naqd_app/cubit/ocr_cubit.dart';
+import 'package:naqd_app/personal/personal_account.dart';
+import 'package:naqd_app/personal/personal_trend.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'add_spending_personal.dart';
+
+class PersonalMainScreen extends StatefulWidget {
+  const PersonalMainScreen({super.key});
+
+  @override
+  _PersonalMainScreenState createState() => _PersonalMainScreenState();
+}
+
+class _PersonalMainScreenState extends State<PersonalMainScreen> {
+  double? extractedAmount;
+  Stream<DocumentSnapshot> getUserStream() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      return FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots();
+    }
+    return Stream.empty(); // In case user is not logged in
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: BlocProvider(
+            create: (_) => SpendingCubit()..fetchTotalSpending(),
+            child: BlocConsumer<SpendingCubit, SpendingState>(
+              listener: (context, state) {
+                if (state is SpendingError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: ${state.message}')),
+                  );
+                }
+              },
+              builder: (context, state) {
+                if (state is SpendingLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state is SpendingLoaded) {
+                  return _buildContent(context, state.total,state.transactions);
+                } else if (state is SpendingError) {
+                  return Center(
+                    child: Text(
+                      'Error: ${state.message}',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  );
+                } else {
+                  return const Center(child: Text('No data available'));
+                }
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, double totalSpending, List<Map<String, dynamic>> transactions) {
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(context),
+        const SizedBox(height: 20),
+        Align(
+          alignment: Alignment.center,
+          child: Column(
+            children: [
+              const Text(
+                'Your Spending:',
+                style: TextStyle(color: Colors.white70, fontSize: 20),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${totalSpending.toStringAsFixed(2)} Sar',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildActionButtons(context),
+        const SizedBox(height: 20),
+        const Text('Transaction', style: TextStyle(color: Colors.white70)),
+        const SizedBox(height: 10),
+        Expanded(child: _buildTransactionList(transactions: transactions)),
+      ],
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? "User";
+    final photoUrl = user?.photoURL;
+    Future<void> logoutUser() async {
+      try {
+        final googleSignIn = GoogleSignIn();
+        if (await googleSignIn.isSignedIn()) {
+          await googleSignIn.signOut();
+        }
+
+        await FirebaseAuth.instance.signOut();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginOptionsScreen()),
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Logged out successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      }
+    }
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AccountSettingsPage()),
+            );
+          },
+          child: CircleAvatar(
+            radius: 28,
+            backgroundImage: photoUrl!.startsWith('http')
+                ? NetworkImage(photoUrl)
+                : AssetImage(photoUrl) as ImageProvider,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Welcome', style: TextStyle(color: const Color(0xFF9E27BC))),
+            Text(displayName, style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        const Spacer(),
+        ElevatedButton(
+          onPressed: logoutUser,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0x33FF0000),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          child: const Text('Logout', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    );
+  }
+
+
+  _buildActionButtons(BuildContext context) {
+    final ImagePicker _picker = ImagePicker();
+
+    Future<void> pickImageAndExtractAmount() async {
+      final XFile? pickedFile = await showDialog<XFile>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Select Image Source'),
+            actions: [
+              TextButton.icon(
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Camera'),
+                onPressed: () async {
+                  Navigator.pop(
+                    context,
+                    await _picker.pickImage(source: ImageSource.camera),
+                  );
+                },
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Gallery'),
+                onPressed: () async {
+                  Navigator.pop(
+                    context,
+                    await _picker.pickImage(source: ImageSource.gallery),
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      );
+
+      if (pickedFile != null) {
+        File file = File(pickedFile.path);
+
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+
+        try {
+          double amount = await context.read<AmountPredictionCubit>().total(
+            file,
+            context,
+          );
+
+          Navigator.pop(context); // Close loading dialog
+
+          if (amount >= 0) {
+            setState(() {
+              extractedAmount = amount;
+            });
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('image_path', file.path);
+            context.read<SpendingCubit>().refreshSpending();
+
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('Amount Detected'),
+                  content: Text('Amount detected: ${extractedAmount.toString()} SAR'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BlocProvider.value(
+                              value: context.read<SpendingCubit>(),
+                              child: AddSpendingPersonalScreen(
+                                amount: extractedAmount!,
+                                imagePath: file.path,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Go to Add Spending'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                  ],
+                );
+              },
+            );
+          } else {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('Error'),
+                  content: const Text('Failed to detect the amount'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Text('OK'),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
+        } catch (e) {
+          Navigator.pop(context); // Close loading dialog in case of error
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('Error'),
+                content: Text('Something went wrong: $e'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      }
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => SpendingTrendScreen()),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF9648FE),
+              side: const BorderSide(color: Colors.white),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: const Icon(Icons.trending_up),
+            label: const Text('Spending Trend'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: pickImageAndExtractAmount,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF9648FE),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Spending'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionList({required List<Map<String, dynamic>> transactions}) {
+    if (transactions.isEmpty) {
+      return const Center(child: Text('No transactions available.'));
+    }
+
+    return ListView.separated(
+      itemCount: transactions.length,
+      separatorBuilder: (_, __) => const Divider(color: Colors.white12),
+      itemBuilder: (context, index) {
+        final transaction = transactions[index];
+
+        // Extracting values from the transaction map
+        final amount = transaction['amount'] ?? '0.00 SAR';
+        final cardName = transaction['card'] ?? 'Unknown Card';
+        final dateTime = transaction['timestamp'] ?? 'Unknown Date';
+        final icon = transaction['icon'] ?? 'ðŸ´';
+
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.grey.shade900,
+            child: Text(
+              icon, // Displaying the icon (emoji or character)
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          title: Text(
+            cardName,
+            style: const TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            dateTime, // Displaying the formatted datetime
+            style: const TextStyle(color: Colors.white70),
+          ),
+          trailing: Text(
+            amount,
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+      },
+    );
+  }
+}
+===== E:\Naqd_app\lib\personal\personal_trend.dart =====
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:naqd_app/personal/personal_main.dart';
+
+class SpendingTrendScreen extends StatefulWidget {
+  @override
+  _SpendingTrendScreenState createState() => _SpendingTrendScreenState();
+}
+
+class _SpendingTrendScreenState extends State<SpendingTrendScreen> {
+  // Updated map to store total amount and icon by type
+  Map<String, Map<String, dynamic>> categoryData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    fetchSpendingData();
+  }
+
+  Future<void> fetchSpendingData() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) throw Exception('User not logged in');
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('spendings')
+          .get();
+
+      Map<String, Map<String, dynamic>> tempData = {};
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final amount = double.tryParse(data['amount'].toString()) ?? 0.0;
+        final type = data['type'] ?? 'Unknown';
+        final icon = data['icon'] ?? 'â“';
+
+        if (tempData.containsKey(type)) {
+          tempData[type]!['total'] += amount;
+        } else {
+          tempData[type] = {
+            'total': amount,
+            'icon': icon,
+          };
+        }
+      }
+
+      setState(() {
+        categoryData = tempData;
+      });
+    } catch (e) {
+      print("Error fetching spending data: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(size.width * 0.05),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  BackButton(
+                    color: Colors.white,
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => PersonalMainScreen()),
+                      );
+                    },
+                  ),
+                  Text("WEEKLY", style: TextStyle(color: Colors.white70)),
+                ],
+              ),
+              SizedBox(height: size.height * 0.02),
+              Container(
+                height: size.height * 0.3,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [Colors.purple, Colors.transparent]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    backgroundColor: Colors.transparent,
+                    barTouchData: BarTouchData(enabled: true),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: true),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < categoryData.length) {
+                              final key = categoryData.keys.elementAt(index);
+                              return Text(
+                                categoryData[key]!['icon'],
+                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: List.generate(categoryData.length, (index) {
+                      final key = categoryData.keys.elementAt(index);
+                      final total = categoryData[key]!['total'] as double;
+                      return BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          BarChartRodData(
+                            toY: total,
+                            color: Colors.purpleAccent,
+                            width: 14,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ),
+              SizedBox(height: size.height * 0.03),
+              Wrap(
+                spacing: 20,
+                runSpacing: 30,
+                children: categoryData.entries.map((entry) {
+                  final label = entry.key;
+                  final total = entry.value['total'] as double;
+                  final icon = entry.value['icon'] as String;
+                  return _categoryCard(label, '${total.toStringAsFixed(2)} SAR', icon);
+                }).toList(),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryCard(String label, String amount, String icon) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 40),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(icon, style: TextStyle(color: Colors.white70, fontSize: 16)),
+                SizedBox(width: 6),
+                Text(label, style: TextStyle(color: Colors.white, fontSize: 14)),
+              ],
+            ),
+            SizedBox(height: 4),
+            Text(amount, style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\personal\spending_add.dart =====
+import 'package:flutter/material.dart';
+import 'package:naqd_app/personal/personal_main.dart';
+
+class SpendingAddScreen extends StatelessWidget {
+  const SpendingAddScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF131313),
+      body: Column(
+        children: [
+          const Spacer(flex: 7),
+          Text(
+            "Spending Added",
+            style: TextStyle(
+              fontSize: size.width * 0.08,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const Spacer(flex: 2),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30),
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PersonalMainScreen(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9648FE),
+                padding: EdgeInsets.symmetric(
+                  vertical: size.height * 0.02,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                minimumSize: Size(double.infinity, 0),
+              ),
+              child: Text(
+                "Homepage",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size.width * 0.035,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(flex: 7),
+        ],
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\SpendingService.dart =====
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class SpendingService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Future<void> addSpending(double amount) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (userId == null) {
+      print("User not authenticated");
+      return;
+    }
+
+    try {
+      await _firestore.collection('spendings').add({
+        'userId': userId,
+        'amount': amount,
+        'timestamp': FieldValue.serverTimestamp(),  // Optional, for sorting
+      });
+      print('Spending added successfully');
+    } catch (e) {
+      print('Error adding spending: $e');
+    }
+  }
+  Future<double> getTotalSpendingForUser() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    // Check if the user is authenticated
+    if (userId == null) {
+      print("User is not authenticated");
+      return 0.0;  // Return 0 if no user is authenticated
+    }
+
+    try {
+      // Query Firestore to get all spending data for the authenticated user
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('spendings')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      print("Number of transactions: ${querySnapshot.docs.length}");  // Debugging line
+
+      double total = 0.0;
+
+      // Loop through the fetched documents and sum up the amounts
+      for (var doc in querySnapshot.docs) {
+        print("Document data: ${doc.data()}");  // Print document data for debugging
+
+        // Ensure the document contains the necessary fields
+        if (doc.data().containsKey('userId') && doc.data().containsKey('amount')) {
+          final amount = doc['amount'];
+
+          // Ensure amount is a valid number (either double or string that can be converted)
+          if (amount is String) {
+            // Try to parse the string to a double
+            final parsedAmount = double.tryParse(amount);
+            if (parsedAmount != null) {
+              total += parsedAmount;
+            } else {
+              print("Error: Invalid amount value in document (unable to parse string): $amount");
+            }
+          } else if (amount is double) {
+            total += amount;
+          } else {
+            print("Error: Unexpected amount type in document: ${amount.runtimeType}");
+          }
+        } else {
+          print("Error: Missing userId or amount in document");
+        }
+      }
+
+      return total;
+
+    } catch (e) {
+      // Catch any error that might occur during the Firestore operation
+      print("Error fetching total spending: $e");
+      return 0.0;  // Return 0 if an error occurred
+    }
+  }
+  Future<List<Map<String, dynamic>>> getTransactions() async {
+    try {
+      // Reference to the transactions collection
+      final transactionRef = FirebaseFirestore.instance.collection('transactions');
+
+      // Fetch the documents in the collection
+      QuerySnapshot querySnapshot = await transactionRef.get();
+
+      // Transform the documents into a list of maps
+      List<Map<String, dynamic>> transactions = querySnapshot.docs.map((doc) {
+        return {
+          'name': doc['name'],
+          'datetime': doc['datetime'],
+          'amount': doc['amount'].toString(),
+          'icon': doc['icon'], // Assuming there's an icon field in the Firestore document
+        };
+      }).toList();
+
+      return transactions;
+    } catch (e) {
+      // Handle error, for example logging the error or returning an empty list
+      print('Error fetching transactions: $e');
+      return [];
+    }
+  }
+}
+===== E:\Naqd_app\lib\splash\loading.dart =====
+import 'package:flutter/material.dart';
+import 'welcome.dart';
+import '../widget/background.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(seconds: 10), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => WelcomeScreen()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return Scaffold(
+      body: Stack(
+        children: [
+          NaqdBackground(
+            child: Positioned(
+              top: -350,
+              left: -80,
+              right: -50,
+              child: SizedBox(
+                height: size.height * 0.9,
+                width: double.infinity,
+                child: Image.asset(
+                  "assets/Vector.png",
+                  width: 180,
+                  height: 180,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -400,
+            left: -80,
+            right: -50,
+            child: SizedBox(
+              height: size.height * 0.9,
+              width: double.infinity,
+              child: Image.asset(
+                "assets/Vector (1).png",
+                width: 180,
+                height: 180,
+              ),
+            ),
+          ),
+          Center(
+            child: Image.asset(
+              "assets/Group 4568.png",
+              width: 150,
+              height: 150,
+            ),
+          ),
+          Positioned(
+            bottom: -350,
+            left: -50,
+            right: -80,
+            child: SizedBox(
+              height: size.height * 0.9,
+              width: double.infinity,
+              child: Image.asset("assets/vector1.png", width: 180, height: 180),
+            ),
+          ),
+          Positioned(
+            bottom: -400,
+            left: -50,
+            right: -80,
+            child: SizedBox(
+              height: size.height * 0.9,
+              width: double.infinity,
+              child: Image.asset(
+                "assets/Vector (2).png",
+                width: 180,
+                height: 180,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\splash\main_page.dart =====
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:naqd_app/coorporate/coorporate_main.dart';
+import '../personal/personal_main.dart';
+
+class UserStateScreen extends StatelessWidget {
+  const UserStateScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? "User";
+    final photoUrl = user?.photoURL;
+    return Scaffold(
+      backgroundColor: Color(0xFF131313),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Column(
+          children: [
+            const Spacer(flex: 5),
+            CircleAvatar(
+              radius: 50,
+              backgroundImage:
+                  photoUrl != null
+                      ? NetworkImage(photoUrl)
+                      : AssetImage('assets/profile.jpg') as ImageProvider,
+            ),
+            // Headline
+            Text(
+              "Welcome",
+              style: TextStyle(
+                fontSize: size.width * 0.08,
+                color: Color(0xFF9E27BC),
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              displayName,
+              style: TextStyle(
+                fontSize: size.width * 0.05,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const Spacer(flex: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => PersonalMainScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_circle_outlined,
+                          color: Color(0xFF9E27BC),
+                        ),
+                        SizedBox(width: 15),
+                        Text(
+                          "Personal",
+                          style: TextStyle(
+                            color: Color(0xFF9E27BC),
+                            fontSize: size.width * 0.035,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: ()async {
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user == null) {
+                          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('User not logged in')));
+                          return;
+                        }
+
+                        final doc = await FirebaseFirestore.instance.collection('joinRequests').doc(user.uid).get();
+
+                        if (doc.exists && doc['status'] == 'approved') {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const CoorporateMainScreen()));
+                          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Welcome, Corporate User!')));
+                        } else if (!doc.exists) {
+                          await FirebaseFirestore.instance.collection('joinRequests').doc(user.uid).set({
+                            'userId': user.uid,
+                            'email': user.email,
+                            'timestamp': FieldValue.serverTimestamp(),
+                            'status': 'pending',
+                          });
+                          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Request sent. Waiting for approval.')));
+                        } else {
+                          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Request is pending approval.')));
+                        }
+                      } catch (e) {
+                        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9648FE),
+                      padding: EdgeInsets.symmetric(
+                        vertical: size.height * 0.02,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shopping_bag_outlined, color: Colors.white),
+                        SizedBox(width: 15),
+                        Text(
+                          "Corporate",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: size.width * 0.035,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\splash\welcome.dart =====
+import 'package:flutter/material.dart';
+import 'package:naqd_app/auth/login_in.dart';
+import '../widget/background.dart';
+
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          NaqdBackground(
+            child: Positioned(
+              top: -350,
+              left: -80,
+              right: -50,
+              child: SizedBox(
+                height: size.height * 0.9,
+                width: double.infinity,
+                child: Image.asset(
+                  "assets/Vector.png",
+                  width: 180,
+                  height: 180,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -400,
+            left: -80,
+            right: -50,
+            child: SizedBox(
+              height: size.height * 0.9,
+              width: double.infinity,
+              child: Image.asset(
+                "assets/Vector (1).png",
+                width: 180,
+                height: 180,
+              ),
+            ),
+          ),
+
+          Align(
+            alignment: Alignment.center,
+            child: Text(
+              "Naqd: Smarter\n Tracking, Better\n Living.",
+              style: TextStyle(
+                fontSize: size.width * 0.09,
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 60),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => LoginOptionsScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF9648FE),
+                  padding: EdgeInsets.symmetric(
+                    vertical: size.height * 0.01,
+                    horizontal: size.width * 0.2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: Text(
+                  "Start Smart",
+                  style: TextStyle(
+                    fontSize: size.width * 0.045,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+===== E:\Naqd_app\lib\widget\background.dart =====
+import 'package:flutter/material.dart';
+
+class NaqdBackground extends StatelessWidget {
+  final Widget? child;
+
+  const NaqdBackground({super.key, this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Container(
+          color: Colors.black,
+          child: GridView.builder(
+            padding: const EdgeInsets.all(5),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 40,
+            ),
+            itemCount: 10,
+            physics: const NeverScrollableScrollPhysics(), // disable scroll
+            itemBuilder: (context, index) {
+              return Center(
+                child: Text(
+                  'NAQD',
+                  style: TextStyle(
+                    color: Colors.white.withAlpha((0.04 * 255).round()),
+                    fontSize: 65,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // Foreground content
+        if (child != null) child!,
+      ],
+    );
+  }
+}
